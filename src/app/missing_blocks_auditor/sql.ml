@@ -1,7 +1,5 @@
 (* sql.ml -- (Postgresql) SQL queries for missing blocks auditor *)
 
-open Core_kernel
-
 module Unparented_blocks = struct
   (* state hashes of ends of chains leading to an orphan block *)
 
