@@ -1052,7 +1052,7 @@ module T = struct
       ; receiver_pk: Public_key.Compressed.t
       ; budget: Fee.t Or_error.t
       ; discarded: Discarded.t
-      ; is_coinbase_reciever_new: bool
+      ; is_coinbase_receiver_new: bool
       ; logger: Logger.t sexp_opaque }
     [@@deriving sexp_of]
 
@@ -1080,7 +1080,7 @@ module T = struct
     let coinbase_work
         ~(constraint_constants : Genesis_constants.Constraint_constants.t)
         ?(is_two = false) (works : Transaction_snark_work.Checked.t Sequence.t)
-        ~is_coinbase_reciever_new ~supercharge_coinbase =
+        ~is_coinbase_receiver_new ~supercharge_coinbase =
       let open Option.Let_syntax in
       let min1, min2 = cheapest_two_work works in
       let diff ws ws' =
@@ -1095,7 +1095,7 @@ module T = struct
       in
       let%bind budget =
         (*if the coinbase receiver is new then the account creation fee will be deducted from the reward*)
-        if is_coinbase_reciever_new then
+        if is_coinbase_receiver_new then
           Currency.Amount.(
             sub coinbase_amount
               (of_fee constraint_constants.account_creation_fee))
@@ -1151,7 +1151,7 @@ module T = struct
               (cb, works) )
 
     let init_coinbase_and_fee_transfers ~constraint_constants cw_seq
-        ~add_coinbase ~job_count ~slots ~is_coinbase_reciever_new
+        ~add_coinbase ~job_count ~slots ~is_coinbase_receiver_new
         ~supercharge_coinbase =
       let cw_unchecked work =
         Sequence.map work ~f:Transaction_snark_work.forget
@@ -1160,7 +1160,7 @@ module T = struct
         match
           ( add_coinbase
           , coinbase_work ~constraint_constants cw_seq
-              ~is_coinbase_reciever_new ~supercharge_coinbase )
+              ~is_coinbase_receiver_new ~supercharge_coinbase )
         with
         | true, Some (ft, rem_cw) ->
             (ft, rem_cw)
@@ -1186,7 +1186,7 @@ module T = struct
         (uc_seq : User_command.Valid.t With_status.t Sequence.t)
         (cw_seq : Transaction_snark_work.Checked.t Sequence.t)
         (slots, job_count) ~receiver_pk ~add_coinbase ~supercharge_coinbase
-        logger ~is_coinbase_reciever_new =
+        logger ~is_coinbase_receiver_new =
       let seq_rev seq =
         let rec go seq rev_seq =
           match Sequence.next seq with
@@ -1199,7 +1199,7 @@ module T = struct
       in
       let coinbase, singles =
         init_coinbase_and_fee_transfers ~constraint_constants cw_seq
-          ~add_coinbase ~job_count ~slots ~is_coinbase_reciever_new
+          ~add_coinbase ~job_count ~slots ~is_coinbase_receiver_new
           ~supercharge_coinbase
       in
       let fee_transfers =
@@ -1235,7 +1235,7 @@ module T = struct
       ; coinbase
       ; budget
       ; discarded
-      ; is_coinbase_reciever_new
+      ; is_coinbase_receiver_new
       ; logger }
 
     let reselect_coinbase_work ~constraint_constants t =
@@ -1249,7 +1249,7 @@ module T = struct
         | One _ -> (
           match
             coinbase_work ~constraint_constants t.completed_work_rev
-              ~is_coinbase_reciever_new:t.is_coinbase_reciever_new
+              ~is_coinbase_receiver_new:t.is_coinbase_receiver_new
               ~supercharge_coinbase:t.supercharge_coinbase
           with
           | None ->
@@ -1259,7 +1259,7 @@ module T = struct
         | Two _ -> (
           match
             coinbase_work ~constraint_constants t.completed_work_rev
-              ~is_two:true ~is_coinbase_reciever_new:t.is_coinbase_reciever_new
+              ~is_two:true ~is_coinbase_receiver_new:t.is_coinbase_receiver_new
               ~supercharge_coinbase:t.supercharge_coinbase
           with
           | None ->
@@ -1526,13 +1526,13 @@ module T = struct
                log ))
 
   let one_prediff ~constraint_constants cw_seq ts_seq ~receiver ~add_coinbase
-      slot_job_count logger ~is_coinbase_reciever_new partition
+      slot_job_count logger ~is_coinbase_receiver_new partition
       ~supercharge_coinbase =
     O1trace.measure "one_prediff" (fun () ->
         let init_resources =
           Resources.init ~constraint_constants ts_seq cw_seq slot_job_count
             ~receiver_pk:receiver ~add_coinbase logger
-            ~is_coinbase_reciever_new ~supercharge_coinbase
+            ~is_coinbase_receiver_new ~supercharge_coinbase
         in
         let log =
           Diff_creation_log.init
@@ -1546,7 +1546,7 @@ module T = struct
     )
 
   let generate ~constraint_constants logger cw_seq ts_seq ~receiver
-      ~is_coinbase_reciever_new ~supercharge_coinbase
+      ~is_coinbase_receiver_new ~supercharge_coinbase
       (partitions : Scan_state.Space_partition.t) =
     let pre_diff_with_one (res : Resources.t) :
         Staged_ledger_diff.With_valid_signatures_and_proofs
@@ -1593,7 +1593,7 @@ module T = struct
     in
     let second_pre_diff (res : Resources.t) partition ~add_coinbase work =
       one_prediff ~constraint_constants work res.discarded.commands_rev
-        ~receiver partition ~add_coinbase logger ~is_coinbase_reciever_new
+        ~receiver partition ~add_coinbase logger ~is_coinbase_receiver_new
         ~supercharge_coinbase `Second
     in
     let isEmpty (res : Resources.t) =
@@ -1605,7 +1605,7 @@ module T = struct
         let res, log =
           one_prediff ~constraint_constants cw_seq ts_seq ~receiver
             partitions.first ~add_coinbase:true logger
-            ~is_coinbase_reciever_new ~supercharge_coinbase `First
+            ~is_coinbase_receiver_new ~supercharge_coinbase `First
         in
         make_diff (res, log) None
     | Some y ->
@@ -1615,7 +1615,7 @@ module T = struct
         let res, log1 =
           one_prediff ~constraint_constants cw_seq_1 ts_seq ~receiver
             partitions.first ~add_coinbase:false logger
-            ~is_coinbase_reciever_new ~supercharge_coinbase `First
+            ~is_coinbase_receiver_new ~supercharge_coinbase `First
         in
         let incr_coinbase_and_compute res count =
           let new_res =
@@ -1625,7 +1625,7 @@ module T = struct
             (*All slots could not be filled either because of budget constraints or not enough work done. Don't create the second prediff instead recompute first diff with just once coinbase*)
             ( one_prediff ~constraint_constants cw_seq_1 ts_seq ~receiver
                 partitions.first ~add_coinbase:true logger
-                ~is_coinbase_reciever_new ~supercharge_coinbase `First
+                ~is_coinbase_receiver_new ~supercharge_coinbase `First
             , None )
           else
             let res2, log2 =
@@ -1635,14 +1635,14 @@ module T = struct
               (*Don't create the second prediff instead recompute first diff with just once coinbase*)
               ( one_prediff ~constraint_constants cw_seq_1 ts_seq ~receiver
                   partitions.first ~add_coinbase:true logger
-                  ~is_coinbase_reciever_new ~supercharge_coinbase `First
+                  ~is_coinbase_receiver_new ~supercharge_coinbase `First
               , None )
             else ((new_res, log1), Some (res2, log2))
         in
         let try_with_coinbase () =
           one_prediff ~constraint_constants cw_seq_1 ts_seq ~receiver
             partitions.first ~add_coinbase:true logger
-            ~is_coinbase_reciever_new ~supercharge_coinbase `First
+            ~is_coinbase_receiver_new ~supercharge_coinbase `First
         in
         let res1, res2 =
           if Sequence.is_empty res.commands_rev then
@@ -1702,7 +1702,7 @@ module T = struct
         (Account_id.create pk Token_id.default)
       |> Option.is_none
     in
-    let is_coinbase_reciever_new = is_new_account coinbase_receiver in
+    let is_coinbase_receiver_new = is_new_account coinbase_receiver in
     if supercharge_coinbase then
       [%log info]
         "No locked tokens in the delegator/delegatee account, applying \
@@ -1791,7 +1791,7 @@ module T = struct
       O1trace.measure "generate diff" (fun () ->
           generate ~constraint_constants logger completed_works_seq
             valid_on_this_ledger ~receiver:coinbase_receiver
-            ~is_coinbase_reciever_new ~supercharge_coinbase partitions )
+            ~is_coinbase_receiver_new ~supercharge_coinbase partitions )
     in
     let summaries, detailed = List.unzip log in
     [%log debug]

@@ -1833,7 +1833,8 @@ module Data = struct
             ; staking_epoch_data: 'staking_epoch_data
             ; next_epoch_data: 'next_epoch_data
             ; has_ancestor_in_same_checkpoint_window: 'bool
-            ; block_stake_winner: 'pk }
+            ; block_stake_winner: 'pk
+            ; coinbase_receiver: 'pk }
           [@@deriving sexp, eq, compare, hash, yojson, fields, hlist]
         end
       end]
@@ -1920,7 +1921,8 @@ module Data = struct
          ; staking_epoch_data
          ; next_epoch_data
          ; has_ancestor_in_same_checkpoint_window
-         ; block_stake_winner } :
+         ; block_stake_winner
+         ; coinbase_receiver } :
           Value.t) =
       let input =
         { Random_oracle.Input.bitstrings=
@@ -1953,7 +1955,8 @@ module Data = struct
          ; staking_epoch_data
          ; next_epoch_data
          ; has_ancestor_in_same_checkpoint_window
-         ; block_stake_winner } :
+         ; block_stake_winner
+         ; coinbase_receiver } :
           var) =
       let open Tick.Checked.Let_syntax in
       let%map input =
@@ -2082,7 +2085,8 @@ module Data = struct
           same_checkpoint_window_unchecked ~constants
             (Global_slot.create ~constants ~epoch:prev_epoch ~slot:prev_slot)
             (Global_slot.create ~constants ~epoch:next_epoch ~slot:next_slot)
-      ; block_stake_winner }
+      ; block_stake_winner
+      ; coinbase_receiver }
 
     let same_checkpoint_window ~(constants : Constants.var)
         ~prev:(slot1 : Global_slot.Checked.t)
@@ -2132,6 +2136,7 @@ module Data = struct
           ~default:(default_epoch_data, default_epoch_data) ~f:(fun data ->
             (data.staking, Option.value ~default:data.staking data.next) )
       in
+      let genesis_winner_pk = fst Vrf.Precomputed.genesis_winner in
       { Poly.blockchain_length
       ; epoch_count= Length.zero
       ; min_window_density= max_window_density
@@ -2150,7 +2155,8 @@ module Data = struct
       ; next_epoch_data=
           Epoch_data.Next.genesis ~genesis_epoch_data:genesis_epoch_data_next
       ; has_ancestor_in_same_checkpoint_window= false
-      ; block_stake_winner= fst Vrf.Precomputed.genesis_winner }
+      ; block_stake_winner= genesis_winner_pk
+      ; coinbase_receiver= genesis_winner_pk }
 
     let create_genesis_from_transition ~negative_one_protocol_state_hash
         ~consensus_transition ~genesis_ledger
@@ -2355,7 +2361,8 @@ module Data = struct
           ; staking_epoch_data
           ; next_epoch_data
           ; has_ancestor_in_same_checkpoint_window
-          ; block_stake_winner } )
+          ; block_stake_winner
+          ; coinbase_receiver } )
 
     type display =
       { blockchain_length: int
@@ -3497,7 +3504,8 @@ module Hooks = struct
                    ~slot:prev_slot)
                 (Global_slot.create ~constants ~epoch:curr_epoch
                    ~slot:curr_slot)
-          ; block_stake_winner= fst Vrf.Precomputed.genesis_winner }
+          ; block_stake_winner= fst Vrf.Precomputed.genesis_winner
+          ; coinbase_receiver }
     end
   end
 end
